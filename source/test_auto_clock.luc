@@ -1,0 +1,75 @@
+module test_auto_clock (
+    input clk,  // clock
+    input rst,  // reset
+    output out,   
+    output carryOut,
+    output sumOut,
+    output p1,
+    output p2,
+    output p3,
+    output seg[7],
+    output sel[4],
+    output io_led[8],
+    input input1,
+    input input2
+  ) {
+
+  .clk(clk), .rst(rst) {
+    dff counter[28];
+    test_fsm_refactor state;
+    multi_seven_seg segdisplay;
+  }
+  test_input inputTest;
+  var temp;
+
+  always {
+    out = 0;
+    io_led = 8b0;
+    
+    //counter with 28 bits
+    counter.d = counter.q + 1;
+    //first 3 most significant figures of the counter, runs adder fsm
+    state.inputA = counter.q[27];
+    state.inputB = counter.q[26];
+    state.carryin = counter.q[25];
+    //outputs counter
+    p1 = counter.q[27];
+    p2 = counter.q[26];
+    p3 = counter.q[25];
+    //outputs fsm results
+    carryOut = state.carryOut;
+    sumOut = state.sumOut;
+    
+    //7 segment display
+    segdisplay.values = {c{3b0, counter.q[27]},c{3b0, counter.q[26]},c{3b0, counter.q[25]}, b1111};
+    sel = segdisplay.sel;
+    seg = segdisplay.seg;
+    
+    //concatenates inputs into a 3 bit wide array
+    temp = c{counter.q[27], counter.q[26], counter.q[25]};
+    //checks if input = fsm's results
+    inputTest.inputB1 = input1;
+    inputTest.inputA1 = input2;
+    inputTest.inputA2 = state.sumOut;
+    inputTest.inputB2 = state.carryOut;
+    if(inputTest.result){ //whole row of leds
+      if(temp == b000) 
+        io_led[7] = 1;
+      else if(temp == b001) 
+        io_led[6] = 1;
+      else if(temp == b010) 
+        io_led[5] = 1;
+      else if(temp == b011) 
+        io_led[4] = 1;
+      else if(temp == b100) 
+        io_led[3] = 1;
+      else if(temp == b101) 
+        io_led[2] = 1;
+      else if(temp == b110) 
+        io_led[1] = 1;
+      else if(temp == b111) 
+        io_led[0] = 1;
+    }
+    
+  }
+}

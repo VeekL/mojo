@@ -1,0 +1,19 @@
+module test_input (
+    output out,
+    input inputA1, 
+    input inputA2,
+    input inputB1, 
+    input inputB2,
+    output result
+  ) {
+
+  always {
+  result = 0;
+    out = 0;
+    if(inputA1 == inputA2){
+      if(inputB1 == inputB2){
+        result = 1;
+      }
+    }
+  }
+}

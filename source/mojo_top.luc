@@ -1,0 +1,93 @@
+module mojo_top (
+    input clk,              // 50MHz clock
+    input rst_n,            // reset button (active low)
+    output led [8],         // 8 user controllable LEDs
+    input cclk,             // configuration clock, AVR ready when high
+    output spi_miso,        // AVR SPI MISO
+    input spi_ss,           // AVR SPI Slave Select
+    input spi_mosi,         // AVR SPI MOSI
+    input spi_sck,          // AVR SPI Clock
+    output spi_channel [4], // AVR general purpose pins (used by default to select ADC channel)
+    input avr_tx,           // AVR TX (FPGA RX)
+    output avr_rx,          // AVR RX (FPGA TX)
+    input avr_rx_busy,      // AVR RX buffer full
+    output io_led [3][8],   // LEDs on IO Shield
+    output io_seg [8],      // 7-segment LEDs on IO Shield
+    output io_sel [4],      // Digit select on IO Shield
+    input io_button [5],    // 5 buttons on IO Shield
+    input io_dip [3][8],    // DIP switches on IO Shield
+    output io_1,
+    output io_2,
+    output io_3,
+    input io_4,
+    input io_5
+  ) {
+  
+  sig rst;                  // reset signal
+  
+  .clk(clk) {
+    // The reset conditioner is used to synchronize the reset signal to the FPGA
+    // clock. This ensures the entire FPGA comes out of reset at the same time.
+    reset_conditioner reset_cond;
+    
+    edge_detector edge_detector (#RISE(1), #FALL(0));
+    
+    .rst(rst) {
+      multi_seven_seg seg;      
+      multi_dec_ctr dec_ctr;
+      counter ctr (#SIZE(1), #DIV(24));
+      test_fsm_refactor state;
+      test_auto_clock clock;
+    }
+  }
+  test_input inputtester;
+  
+  always {
+    reset_cond.in = ~rst_n;   // input raw inverted reset signal
+    rst = reset_cond.out;     // conditioned reset
+    
+    led = c{3h1, io_button};  // connect buttons to LEDs
+    spi_miso = bz;            // not using SPI
+    spi_channel = bzzzz;      // not using flags
+    avr_rx = bz;              // not using serial port
+    io_seg = ~8b0;
+    io_sel = 4b0;
+    
+    edge_detector.in = ctr.value;
+    dec_ctr.inc = edge_detector.out;
+    seg.values = dec_ctr.digits;
+
+    io_seg = ~clock.seg; //7 segment display displays clock's 7 segment output
+    io_sel = ~clock.sel;
+    
+    io_led = 3x{{8d0}}; // connect the DIP switches to the LEDs
+    
+    //fsm for io switches
+    state.inputA = io_dip[0][0]; 
+    state.inputB = io_dip[0][1];
+    state.carryin = io_dip[0][2];
+    io_led[2][6] = state.carryOut;
+    io_led[2][7] = state.sumOut;
+    
+    //displays clock's sum and carryout
+    io_led[1][0] = clock.sumOut;
+    io_led[1][1] = clock.carryOut;
+    
+    //clock counter outputs to io 
+    io_1 = clock.p1;
+    io_2 = clock.p2; 
+    io_3 = clock.p3;
+    
+    //tests if input sum and carry == clock's sum and carry
+    inputtester.inputB1 = io_4;
+    inputtester.inputA1 = io_5;
+    inputtester.inputA2 = clock.sumOut;
+    inputtester.inputB2 = clock.carryOut;
+    io_led[0][7] = inputtester.result;    
+    
+    //moving array of tests
+    io_led[2] = clock.io_led;
+    clock.input1 = io_4;
+    clock.input2 = io_5;
+    }   
+}
